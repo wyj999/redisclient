@@ -21,6 +21,7 @@ RedisClient::RedisClient(const std::string ip,
 
 RedisClient::~RedisClient() 
 {
+	printf("~RedisClient()\n");
 	if (redisPool_)
 	{
 		delete redisPool_;
@@ -47,5 +48,28 @@ std::string RedisClient::get(std::string key)
 	
 	return value;
 }
+
+int RedisClient::hset(std::string key, std::string field, std::string value)
+{
+    RedisConnection* conn = redisPool_->getConnection();
+
+	int result = conn->hset(key, field, value);
+
+	redisPool_->freeConnection(conn);
+	
+	return result;
+}
+
+std::string RedisClient::hget(std::string key, std::string field)
+{
+    RedisConnection* conn = redisPool_->getConnection();
+
+	std::string result = conn->hget(key, field);
+
+	redisPool_->freeConnection(conn);
+	
+	return result;
+}
+
 
 

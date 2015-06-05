@@ -7,12 +7,13 @@
 #include <list>
 #include <new>
 #include <stdint.h>
+#include <unistd.h>
 #include <string>
 #include <stdint.h>
 #include <string.h>
+#include <thread>
+#include <functional>
 
-
-using std::string;
 
 class RedisPool;
 
@@ -23,13 +24,13 @@ public:
 	~RedisConnection();
 
     int connect();
-	bool ping() const;
 	bool checkReply(const redisReply *reply);
-	std::string getErrText() {return errstr_;}
-	bool setErrText(const char *info);
-
+	
+	bool ping();
     bool set(std::string key, std::string &value);
     std::string get(std::string key);
+	int hset(std::string key, std::string field, std::string value);
+	std::string hget(std::string key, std::string field);
 private:
 	
 	redisContext* 	redisContext_;
@@ -50,6 +51,7 @@ public:
 	~RedisPool();
 
 	int init();
+	void serverCron();
 
 	int getDBNo() { return dbNo_; }
 
@@ -68,5 +70,7 @@ private:
 	mutable MutexLock mutex_;  
 	Condition notEmpty_;
 	std::list<RedisConnection*>	connections_;
+	std::thread* cronThread;
+	bool quit_;
 };
 #endif // REDIS_POOL_H

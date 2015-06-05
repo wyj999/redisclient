@@ -23,6 +23,8 @@ public:
     void set(std::string key, std::string value);
 	std::string get(std::string key);
 	// Hash
+	int hset(std::string key, std::string field, std::string value);
+	std::string hget(std::string key, std::string field);
 	// List
 	// Set
 	

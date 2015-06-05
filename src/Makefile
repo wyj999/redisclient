@@ -1,6 +1,6 @@
 TARGET = libredisclient.a
 
-CXXFLAGS = -O0 -Wall
+CXXFLAGS = -O0 -Wall -std=c++11
 LDFLAGS =  -lhiredis
 AR = ar
 CC = g++

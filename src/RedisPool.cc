@@ -17,9 +17,12 @@ RedisConnection::RedisConnection(RedisPool* redisPool)
 }
 RedisConnection::~RedisConnection()
 {
+	printf("~RedisConnection()\n");
 	if (redisContext_) 
 	{
+	printf("CCCCCC\n");
 		redisFree(redisContext_);
+	printf("DDDDDD\n");
 		redisContext_ = NULL;
 	}
 }
@@ -49,16 +52,6 @@ int RedisConnection::connect()
 	return 0;
 }
 
-bool RedisConnection::ping() const 
-{
-	redisReply *reply = static_cast<redisReply*>(redisCommand(redisContext_,"PING"));
-	if (reply == NULL)
-		return false;
-	freeReplyObject(reply);
-	
-	return true;
-}
-
 bool RedisConnection::checkReply(const redisReply* reply)
 {
     if(reply == NULL) 
@@ -83,6 +76,19 @@ bool RedisConnection::checkReply(const redisReply* reply)
     }
 
     return false;
+}
+
+bool RedisConnection::ping() 
+{
+	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "PING"));
+	if (!checkReply(reply)) 
+    {
+		return false;
+    }
+	if (reply)
+		freeReplyObject(reply);
+	
+	return (strcasecmp(reply->str, "PONG") == 0) ? true : false;
 }
 
 bool RedisConnection::set(std::string key, std::string &value)
@@ -118,6 +124,41 @@ std::string RedisConnection::get(std::string key)
 }
 
 
+
+int RedisConnection::hset(std::string key, std::string field, std::string value)
+{
+	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, \
+						"HSET %s %s %s", key.c_str(), field.c_str(), value.c_str()));
+    if (!checkReply(reply)) 
+    {
+		if (reply)
+			freeReplyObject(reply);
+        THROW_REDIS_REPLY();
+    }
+
+	freeReplyObject(reply);
+	return reply->integer;
+}
+
+std::string RedisConnection::hget(std::string key, std::string field)
+{
+
+	std::string result;
+	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, \
+						"HGET %s %s", key.c_str(), field.c_str()));
+    if (!checkReply(reply)) 
+    {
+		if (reply)
+			freeReplyObject(reply);
+        THROW_REDIS_REPLY();
+    }
+
+	result.append(reply->str, reply->len);
+	freeReplyObject(reply);
+	return result;
+}
+
+
 RedisPool::RedisPool(const std::string ip, 
 					uint16_t port, 
 					int minConn,
@@ -132,13 +173,18 @@ RedisPool::RedisPool(const std::string ip,
 	  name_(nameArg),
 	  mutex_(),
 	  notEmpty_(mutex_),
-	  connections_()
+	  connections_(),
+	  quit_(false)
 {
 	
 }
 RedisPool::~RedisPool()
 {
+	printf("~RedisPool()\n");
 	MutexLockGuard lock(mutex_);
+
+	quit_ = 1;
+	cronThread->join();
 	
 	for (std::list<RedisConnection*>::iterator it = connections_.begin(); 
 			it != connections_.end(); it++) 
@@ -168,7 +214,29 @@ int RedisPool::init()
 			connections_.push_back(conn);
 	}
 
+	cronThread = new std::thread(std::bind(&RedisPool::serverCron, this));
+
 	return 0;
+}
+
+// move out the disabled connections
+void RedisPool::serverCron()
+{
+	while (!quit_)
+	{
+		sleep(10); // 
+		MutexLockGuard lock(mutex_);
+		
+		std::list<RedisConnection*>::iterator it = connections_.begin();
+		for (; it != connections_.end(); ) 
+		{
+			if ((*it)->ping() == false)
+			{
+				delete *it;
+				connections_.remove(*it++);
+			}
+		}
+	}
 }
 
 RedisConnection* RedisPool::getConnection()
@@ -204,20 +272,20 @@ RedisConnection* RedisPool::getConnection()
 	return pConn;
 }
 
-void RedisPool::freeConnection(RedisConnection* pCacheConn)
+void RedisPool::freeConnection(RedisConnection* conn)
 {
 	MutexLockGuard lock(mutex_);
 
 	std::list<RedisConnection*>::iterator it = connections_.begin();
 	for (; it != connections_.end(); it++) 
 	{
-		if (*it == pCacheConn) 
+		if (*it == conn) 
 			break;
 	}
 
 	if (it == connections_.end()) 
 	{
-		connections_.push_back(pCacheConn);
+		connections_.push_back(conn);
 	}
 
 	notEmpty_.notify();
