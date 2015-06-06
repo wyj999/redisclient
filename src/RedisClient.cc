@@ -11,7 +11,7 @@ RedisClient::RedisClient(const std::string ip,
 	  hostport_(port),
 	  minConn_(minConn),
 	  maxConn_(maxConn),
-      dbNo_(dbNo),
+	  dbNo_(dbNo),
 	  name_(nameArg),
 	  redisPool_(new RedisPool(ip, port, minConn, maxConn, dbNo,  nameArg)) 
 {
@@ -21,7 +21,6 @@ RedisClient::RedisClient(const std::string ip,
 
 RedisClient::~RedisClient() 
 {
-	printf("~RedisClient()\n");
 	if (redisPool_)
 	{
 		delete redisPool_;
@@ -29,9 +28,20 @@ RedisClient::~RedisClient()
 	}
 }
 
+bool RedisClient::exists(std::string key)
+{
+	RedisConnection* conn = redisPool_->getConnection();
+
+	bool result = conn->exists(key);
+
+    redisPool_->freeConnection(conn);
+
+    return result;
+}
+
 void RedisClient::set(std::string key, std::string value)
 {
-    RedisConnection* conn = redisPool_->getConnection();
+	RedisConnection* conn = redisPool_->getConnection();
 
 	conn->set(key, value);
 
@@ -40,7 +50,7 @@ void RedisClient::set(std::string key, std::string value)
 
 std::string RedisClient::get(std::string key)
 {
-    RedisConnection* conn = redisPool_->getConnection();
+	RedisConnection* conn = redisPool_->getConnection();
 
 	std::string value = conn->get(key);
 
@@ -51,7 +61,7 @@ std::string RedisClient::get(std::string key)
 
 int RedisClient::hset(std::string key, std::string field, std::string value)
 {
-    RedisConnection* conn = redisPool_->getConnection();
+	RedisConnection* conn = redisPool_->getConnection();
 
 	int result = conn->hset(key, field, value);
 
@@ -62,7 +72,7 @@ int RedisClient::hset(std::string key, std::string field, std::string value)
 
 std::string RedisClient::hget(std::string key, std::string field)
 {
-    RedisConnection* conn = redisPool_->getConnection();
+	RedisConnection* conn = redisPool_->getConnection();
 
 	std::string result = conn->hget(key, field);
 

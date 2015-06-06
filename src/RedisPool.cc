@@ -17,12 +17,9 @@ RedisConnection::RedisConnection(RedisPool* redisPool)
 }
 RedisConnection::~RedisConnection()
 {
-	printf("~RedisConnection()\n");
 	if (redisContext_) 
 	{
-	printf("CCCCCC\n");
 		redisFree(redisContext_);
-	printf("DDDDDD\n");
 		redisContext_ = NULL;
 	}
 }
@@ -81,14 +78,27 @@ bool RedisConnection::checkReply(const redisReply* reply)
 bool RedisConnection::ping() 
 {
 	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "PING"));
-	if (!checkReply(reply)) 
-    {
+	if (reply == NULL)
 		return false;
+		
+	freeReplyObject(reply);
+	return true;
+}
+
+bool RedisConnection::exists(std::string key)
+{
+	int result;
+    redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "EXISTS %s", key.c_str()));
+    if (!checkReply(reply)) 
+    {
+		if (reply)
+			freeReplyObject(reply);
+        THROW_REDIS_REPLY();
     }
-	if (reply)
-		freeReplyObject(reply);
-	
-	return (strcasecmp(reply->str, "PONG") == 0) ? true : false;
+
+	result = reply->integer;
+	freeReplyObject(reply);
+    return result == 1;
 }
 
 bool RedisConnection::set(std::string key, std::string &value)
@@ -142,7 +152,6 @@ int RedisConnection::hset(std::string key, std::string field, std::string value)
 
 std::string RedisConnection::hget(std::string key, std::string field)
 {
-
 	std::string result;
 	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, \
 						"HGET %s %s", key.c_str(), field.c_str()));
@@ -180,7 +189,6 @@ RedisPool::RedisPool(const std::string ip,
 }
 RedisPool::~RedisPool()
 {
-	printf("~RedisPool()\n");
 	MutexLockGuard lock(mutex_);
 
 	quit_ = 1;
@@ -224,7 +232,7 @@ void RedisPool::serverCron()
 {
 	while (!quit_)
 	{
-		sleep(10); // 
+		std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 		MutexLockGuard lock(mutex_);
 		
 		std::list<RedisConnection*>::iterator it = connections_.begin();
@@ -234,6 +242,10 @@ void RedisPool::serverCron()
 			{
 				delete *it;
 				connections_.remove(*it++);
+			}
+			else
+			{
+				it++;
 			}
 		}
 	}

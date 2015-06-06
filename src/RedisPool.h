@@ -13,6 +13,8 @@
 #include <string.h>
 #include <thread>
 #include <functional>
+#include <chrono>
+
 
 
 class RedisPool;
@@ -23,10 +25,11 @@ public:
 	RedisConnection(RedisPool* redisPool);
 	~RedisConnection();
 
-    int connect();
+	int connect();
 	bool checkReply(const redisReply *reply);
 	
 	bool ping();
+	bool exists(std::string key);
     bool set(std::string key, std::string &value);
     std::string get(std::string key);
 	int hset(std::string key, std::string field, std::string value);

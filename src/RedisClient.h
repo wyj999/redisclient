@@ -19,6 +19,7 @@ public:
 
 	// Connection
 	// Key	
+	bool exists(std::string key);
 	// String
     void set(std::string key, std::string value);
 	std::string get(std::string key);
