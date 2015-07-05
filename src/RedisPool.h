@@ -5,6 +5,7 @@
 #include "RedisSynch.h"
 #include "RedisException.h"
 #include <list>
+#include <map>
 #include <new>
 #include <stdint.h>
 #include <unistd.h>
@@ -34,11 +35,11 @@ public:
     std::string get(std::string key);
 	int hset(std::string key, std::string field, std::string value);
 	std::string hget(std::string key, std::string field);
+	bool hgetall(std::string key, std::map<std::string, std::string>& result);
 private:
 	
 	redisContext* 	redisContext_;
 	uint64_t lastActiveTime_;
-    std::string errstr_;
 	RedisPool* redisPool_;
 };
 

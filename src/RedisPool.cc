@@ -56,28 +56,28 @@ int RedisConnection::connect()
 
 bool RedisConnection::checkReply(const redisReply* reply)
 {
-    if(reply == NULL) 
-        return false;
+	if(reply == NULL) 
+		return false;
 
-    switch(reply->type)
-    {
-    case REDIS_REPLY_STRING:
-            return true;
-    case REDIS_REPLY_ARRAY:
-            return (strcasecmp(reply->str, "OK") == 0) ? true : false;
-    case REDIS_REPLY_INTEGER:
-            return true;
-    case REDIS_REPLY_NIL:
-            return false;
-    case REDIS_REPLY_STATUS:
-            return (strcasecmp(reply->str, "OK") == 0) ? true : false;
-    case REDIS_REPLY_ERROR:
-            return false;
-    default:
-            return false;
-    }
+	switch(reply->type)
+	{
+	case REDIS_REPLY_STRING:
+		return true;
+	case REDIS_REPLY_ARRAY:
+		return true;
+	case REDIS_REPLY_INTEGER:
+		return true;
+	case REDIS_REPLY_NIL:
+		return false;
+	case REDIS_REPLY_STATUS:
+		return (strcasecmp(reply->str, "OK") == 0) ? true : false;
+	case REDIS_REPLY_ERROR:
+		return false;
+	default:
+		return false;
+	}
 
-    return false;
+	return false;
 }
 
 bool RedisConnection::ping() 
@@ -93,18 +93,18 @@ bool RedisConnection::ping()
 bool RedisConnection::exists(std::string key)
 {
 	int result;
-    redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "EXISTS %s", key.c_str()));
-    if (!checkReply(reply)) 
-    {
-    	RedisException e(PREPARE_REDIS_EXCEPTION());
+	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "EXISTS %s", key.c_str()));
+	if (!checkReply(reply)) 
+	{
+		RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        throw e;
-    }
+	    throw e;
+	}
 
 	result = reply->integer;
 	freeReplyObject(reply);
-    return result == 1;
+	return result == 1;
 }
 
 bool RedisConnection::set(std::string key, std::string &value)
@@ -125,13 +125,13 @@ bool RedisConnection::set(std::string key, std::string &value)
 std::string RedisConnection::get(std::string key)
 {
 	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "GET %s", key.c_str()));
-    if (!checkReply(reply)) 
-    {
-    	RedisException e(PREPARE_REDIS_EXCEPTION());
+	if (!checkReply(reply)) 
+	{
+		RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
 		throw e;
-    }
+	}
 
 	std::string result;
 	if (reply->type == REDIS_REPLY_STRING) 
@@ -141,19 +141,17 @@ std::string RedisConnection::get(std::string key)
 	return result;
 }
 
-
-
 int RedisConnection::hset(std::string key, std::string field, std::string value)
 {
 	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, \
 						"HSET %s %s %s", key.c_str(), field.c_str(), value.c_str()));
-    if (!checkReply(reply)) 
-    {
-    	RedisException e(PREPARE_REDIS_EXCEPTION());
+	if (!checkReply(reply)) 
+	{
+		RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        throw e;
-    }
+		throw e;
+	}
 
 	freeReplyObject(reply);
 	return reply->integer;
@@ -164,19 +162,44 @@ std::string RedisConnection::hget(std::string key, std::string field)
 	std::string result;
 	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, \
 						"HGET %s %s", key.c_str(), field.c_str()));
-    if (!checkReply(reply)) 
-    {
-    	RedisException e(PREPARE_REDIS_EXCEPTION());
+	if (!checkReply(reply)) 
+	{
+		RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        throw e;
-    }
+	    throw e;
+	}
 
 	result.append(reply->str, reply->len);
 	freeReplyObject(reply);
 	return result;
 }
 
+bool RedisConnection::hgetall(std::string key, std::map<std::string, std::string>& result)
+{
+	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, \
+						"HGETALL %s", key.c_str()));
+	if (!checkReply(reply)) 
+	{
+		RedisException e(PREPARE_REDIS_EXCEPTION());
+		if (reply)
+			freeReplyObject(reply);
+	    throw e;
+	}
+
+	if ( (reply->type == REDIS_REPLY_ARRAY) && (reply->elements % 2 == 0) ) 
+	{
+		for (size_t i = 0; i < reply->elements; i += 2) 
+		{
+			std::string field(reply->element[i]->str, reply->element[i]->len);
+			std::string value(reply->element[i+1]->str, reply->element[i+1]->len);
+			result.insert(make_pair(field, value));
+		}
+	}
+
+	freeReplyObject(reply);
+	return true;
+}
 
 RedisPool::RedisPool(const std::string ip, 
 					uint16_t port, 

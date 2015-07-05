@@ -34,9 +34,9 @@ bool RedisClient::exists(std::string key)
 
 	bool result = conn->exists(key);
 
-    redisPool_->freeConnection(conn);
+	redisPool_->freeConnection(conn);
 
-    return result;
+	return result;
 }
 
 void RedisClient::set(std::string key, std::string value)
@@ -45,7 +45,7 @@ void RedisClient::set(std::string key, std::string value)
 
 	conn->set(key, value);
 
-    redisPool_->freeConnection(conn);
+	redisPool_->freeConnection(conn);
 }
 
 std::string RedisClient::get(std::string key)
@@ -55,7 +55,7 @@ std::string RedisClient::get(std::string key)
 	std::string value = conn->get(key);
 
 	redisPool_->freeConnection(conn);
-	
+
 	return value;
 }
 
@@ -66,7 +66,7 @@ int RedisClient::hset(std::string key, std::string field, std::string value)
 	int result = conn->hset(key, field, value);
 
 	redisPool_->freeConnection(conn);
-	
+
 	return result;
 }
 
@@ -77,9 +77,19 @@ std::string RedisClient::hget(std::string key, std::string field)
 	std::string result = conn->hget(key, field);
 
 	redisPool_->freeConnection(conn);
-	
+
 	return result;
 }
 
+bool RedisClient::hgetall(std::string key, std::map<std::string, std::string>& result)
+{
+	RedisConnection* conn = redisPool_->getConnection();
+
+	bool ret = conn->hgetall(key, result);
+
+	redisPool_->freeConnection(conn);
+	
+	return ret;
+}
 
 

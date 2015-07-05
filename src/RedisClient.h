@@ -26,6 +26,7 @@ public:
 	// Hash
 	int hset(std::string key, std::string field, std::string value);
 	std::string hget(std::string key, std::string field);
+	bool hgetall(std::string key, std::map<std::string, std::string>& result);
 	// List
 	// Set
 	
