@@ -1,12 +1,15 @@
 #include "RedisPool.h"
 
 
-#define THROW_REDIS_CONTEXT(message) throw RedisException(std::string(__FUNCTION__)+ \
-									"|"+ redisContext_->errstr + "|" + std::string(message))
-#define THROW_REDIS_REPLY(message) throw RedisException(std::string(__FUNCTION__)+ \
-									"|"+ redisContext_->errstr + \
-									"|" + reply->str + "|" + std::string(message))
+#define PREPARE_REDIS_CONTEXT_EXCEPTION(message)  std::string(__FUNCTION__)+ \
+									"|"+ (redisContext_->errstr == NULL ? "" : redisContext_->errstr)+ \
+									"|" + std::string(message)
 
+#define PREPARE_REDIS_EXCEPTION(message)  std::string(__FUNCTION__)+ \
+									"|"+ (redisContext_->errstr == NULL ? "" : redisContext_->errstr)+ \
+									"|" +(reply->str == NULL ? "" : reply->str)+ \
+									"|" + std::string(message)
+									
 
 RedisConnection::RedisConnection(RedisPool* redisPool)
 	: redisContext_(NULL),
@@ -30,21 +33,23 @@ int RedisConnection::connect()
 	redisContext_ = redisConnectWithTimeout(redisPool_->getServerIP(), redisPool_->getServerPort(), timeout);
 	if (!redisContext_ || redisContext_->err) 
 	{
+		RedisException e(PREPARE_REDIS_CONTEXT_EXCEPTION("connect failed!"));
 		if (redisContext_) 
 		{
 			redisFree(redisContext_);
 			redisContext_ = NULL;
 		} 
-		THROW_REDIS_CONTEXT("connect failed!");
+		throw e;
 	}
 
 	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "SELECT %d", redisPool_->getDBNo()));
-    if (!checkReply(reply)) 
-    {
+	if (!checkReply(reply)) 
+	{
+		RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        THROW_REDIS_REPLY();
-    }
+	    throw e;
+	}
 	
 	return 0;
 }
@@ -91,9 +96,10 @@ bool RedisConnection::exists(std::string key)
     redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "EXISTS %s", key.c_str()));
     if (!checkReply(reply)) 
     {
+    	RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        THROW_REDIS_REPLY();
+        throw e;
     }
 
 	result = reply->integer;
@@ -106,9 +112,10 @@ bool RedisConnection::set(std::string key, std::string &value)
     redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "SET %s %s", key.c_str(), value.c_str()));
     if (!checkReply(reply)) 
     {
+    	RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        THROW_REDIS_REPLY();
+		throw e;
     }
 
 	freeReplyObject(reply);
@@ -120,9 +127,10 @@ std::string RedisConnection::get(std::string key)
 	redisReply* reply = static_cast<redisReply*>(redisCommand(redisContext_, "GET %s", key.c_str()));
     if (!checkReply(reply)) 
     {
+    	RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        THROW_REDIS_REPLY();
+		throw e;
     }
 
 	std::string result;
@@ -141,9 +149,10 @@ int RedisConnection::hset(std::string key, std::string field, std::string value)
 						"HSET %s %s %s", key.c_str(), field.c_str(), value.c_str()));
     if (!checkReply(reply)) 
     {
+    	RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        THROW_REDIS_REPLY();
+        throw e;
     }
 
 	freeReplyObject(reply);
@@ -157,9 +166,10 @@ std::string RedisConnection::hget(std::string key, std::string field)
 						"HGET %s %s", key.c_str(), field.c_str()));
     if (!checkReply(reply)) 
     {
+    	RedisException e(PREPARE_REDIS_EXCEPTION());
 		if (reply)
 			freeReplyObject(reply);
-        THROW_REDIS_REPLY();
+        throw e;
     }
 
 	result.append(reply->str, reply->len);
@@ -191,7 +201,7 @@ RedisPool::~RedisPool()
 {
 	MutexLockGuard lock(mutex_);
 
-	quit_ = 1;
+	quit_ = true;
 	cronThread->join();
 	
 	for (std::list<RedisConnection*>::iterator it = connections_.begin(); 
